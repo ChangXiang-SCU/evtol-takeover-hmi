@@ -1,0 +1,30 @@
+{
+  "api_base": "http://10.7.144.111:5000",
+  "description": "eVTOL 停机坪 — 训练结束返场/停放位置",
+  "helipad_point": {
+    "saved_at_utc": "2026-07-08T06:41:57Z",
+    "position": {
+      "latitude": 23.14124881908378,
+      "longitude": 113.27711643784166,
+      "altitude_ft_msl": 168.31411523649513,
+      "altitude_ft_agl": 2.8916520072953062,
+      "heading_true_deg": 0.42001105847292786,
+      "pitch_deg": 0.0058954018746720255,
+      "bank_deg": -0.0003630956874582288
+    },
+    "teleport_set_payload": {
+      "PLANE_LATITUDE": 23.14124881908378,
+      "PLANE_LONGITUDE": 113.27711643784166,
+      "PLANE_ALTITUDE": 168.31411523649513,
+      "PLANE_HEADING_DEGREES_TRUE": 0.42001105847292786,
+      "PLANE_PITCH_DEGREES": 0.0058954018746720255,
+      "PLANE_BANK_DEGREES": -0.0003630956874582288
+    },
+    "environment": {
+      "ground_altitude_ft": 50.42076679226011,
+      "wind_velocity_kt": 7.881473253386049,
+      "wind_direction_deg": 269.7403564453125,
+      "on_ground": true
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "api_base": "http://10.7.144.111:5000",
+  "description": "eVTOL 风切变测试 - 恢复点与触发点分离（广州附近）",
+  "restore_point": {
+    "saved_at_utc": "2026-07-08T07:09:54Z",
+    "position": {
+      "latitude": 23.1357123456789,
+      "longitude": 113.27492654321098,
+      "altitude_ft_msl": 800.0,
+      "altitude_ft_agl": 771.2,
+      "heading_true_deg": 0.34301232453198804,
+      "pitch_deg": 0.0002005083937755205,
+      "bank_deg": 0.07424911795802905
+    },
+    "teleport_set_payload": {
+      "PLANE_LATITUDE": 23.1357123456789,
+      "PLANE_LONGITUDE": 113.27492654321098,
+      "PLANE_ALTITUDE": 800.0,
+      "PLANE_HEADING_DEGREES_TRUE": 0.34301232453198804,
+      "PLANE_PITCH_DEGREES": 0.0002005083937755205,
+      "PLANE_BANK_DEGREES": 0.07424911795802905
+    },
+    "environment": {
+      "ground_altitude_ft": 28.806872845627364,
+      "wind_velocity_kt": 0.03169820805347757,
+      "wind_direction_deg": 337.0523986816406,
+      "on_ground": false
+    },
+    "aligned_from_helipad": true,
+    "note": "距停机坪 650 m（方位约 200° SSW），高度 800 ft MSL"
+  },
+  "windshear_trigger": {
+    "center_latitude": 23.13909375133796,
+    "center_longitude": 113.27622236515832,
+    "radius_m": 50,
+    "center_altitude_ft_msl": 482.15518707708327,
+    "alt_tolerance_ft": 100,
+    "alt_min_ft": 382.15518707708327,
+    "alt_max_ft": 582.1551870770833,
+    "note": "风切变触发区：半径 50m，高度 382-582 ft MSL (记录高度 482 ft ± 100 ft)",
+    "saved_at_utc": "2026-07-07T08:38:09Z"
+  },
+  "windshear_target": {
+    "wind_velocity_kt": 50.0,
+    "wind_direction_deg": 270.0,
+    "note": "目标风况；DevKit 目前无法写入 MSFS 风速，需 MSFS 天气面板或 Active Sky"
+  }
+}

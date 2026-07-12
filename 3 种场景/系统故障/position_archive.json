@@ -1,0 +1,18 @@
+{
+  "api_base": "http://10.7.144.111:5000",
+  "scenario": "下降阶段自动驾驶系统断开，需人工接管",
+  "description": "系统故障场景 — 模拟进近下降时 AP 断开",
+  "failure_save_point": null,
+  "failure_trigger": {
+    "note": "系统故障触发区：半径 50m，高度 261-461 ft MSL (记录高度 361 ft ± 100 ft)",
+    "enabled": true,
+    "center_latitude": 23.13961444643317,
+    "center_longitude": 113.2779902735462,
+    "center_altitude_ft_msl": 360.603438407279,
+    "radius_m": 50,
+    "alt_tolerance_ft": 100,
+    "alt_min_ft": 260.603438407279,
+    "alt_max_ft": 460.603438407279,
+    "saved_at_utc": "2026-07-07T09:32:51Z"
+  }
+}

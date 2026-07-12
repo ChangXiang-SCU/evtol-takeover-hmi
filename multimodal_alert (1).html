@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>eVTOL 接管实验刺激界面</title>
+  <style>
+    :root {
+      --black: #000;
+      --red: #ff3434;
+      --deep-red: #230205;
+      --gold: #ffd166;
+      --white: #fff8ed;
+      --cyan: #82e9ff;
+      --muted: rgba(255, 248, 237, 0.68);
+      --panel: rgba(10, 15, 18, 0.88);
+      --line: rgba(255, 255, 255, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--black);
+      color: var(--white);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .setup {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      padding: 40px;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(130, 233, 255, 0.14), transparent 34%),
+        linear-gradient(180deg, #071216 0%, #020405 100%);
+    }
+
+    .setup.hidden {
+      display: none;
+    }
+
+    .setup-card {
+      width: min(980px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: clamp(24px, 4vw, 44px);
+      background: var(--panel);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.48);
+    }
+
+    .setup-title {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 3.2vw, 46px);
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+
+    .setup-subtitle {
+      margin: 0 0 30px;
+      color: var(--muted);
+      font-size: clamp(15px, 1.4vw, 18px);
+      line-height: 1.6;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .combo {
+      min-height: 118px;
+      border: 1px solid rgba(130, 233, 255, 0.18);
+      border-radius: 8px;
+      color: var(--white);
+      background: rgba(255, 255, 255, 0.035);
+      cursor: pointer;
+      text-align: left;
+      padding: 18px;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .combo:hover {
+      transform: translateY(-2px);
+      border-color: rgba(130, 233, 255, 0.52);
+      background: rgba(130, 233, 255, 0.08);
+    }
+
+    .combo b {
+      display: block;
+      color: var(--gold);
+      font-size: clamp(27px, 3vw, 42px);
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .combo span {
+      display: block;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .stimulus {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      display: none;
+      grid-template-columns: minmax(420px, 0.95fr) minmax(500px, 1.12fr);
+      gap: clamp(28px, 5vw, 72px);
+      align-items: center;
+      padding: clamp(48px, 7vw, 100px);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 46% 46%, rgba(255, 52, 52, 0.26), transparent 42%),
+        linear-gradient(180deg, #120102 0%, var(--deep-red) 54%, #050000 100%);
+    }
+
+    .stimulus.show {
+      display: grid;
+    }
+
+    .stimulus::before {
+      content: "";
+      position: absolute;
+      inset: 26px;
+      border: 3px solid rgba(255, 209, 102, 0.64);
+      border-radius: 10px;
+      box-shadow:
+        0 0 0 12px rgba(255, 52, 52, 0.12),
+        inset 0 0 90px rgba(255, 52, 52, 0.12);
+      pointer-events: none;
+      animation: framePulse 1s infinite;
+    }
+
+    @keyframes framePulse {
+      50% {
+        border-color: rgba(255, 248, 237, 0.92);
+      }
+    }
+
+    .message {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .message h1 {
+      margin: 0;
+      color: var(--white);
+      font-size: clamp(70px, 9vw, 160px);
+      line-height: 1.06;
+      font-weight: 950;
+      letter-spacing: 0;
+      text-shadow: 0 0 28px rgba(255, 248, 237, 0.22);
+    }
+
+    .message span {
+      display: block;
+      margin-top: clamp(18px, 2.4vw, 34px);
+      color: var(--gold);
+      font-size: clamp(52px, 7vw, 130px);
+      line-height: 1.04;
+      font-weight: 950;
+      text-shadow: 0 0 26px rgba(255, 209, 102, 0.34);
+    }
+
+    .visual {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      aspect-ratio: 1.16;
+      min-height: 430px;
+      border: 2px solid rgba(255, 248, 237, 0.18);
+      border-radius: 10px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(9, 24, 32, 0.98) 0%, rgba(22, 42, 47, 0.98) 48%, rgba(10, 13, 12, 0.98) 49%, rgba(3, 4, 4, 0.98) 100%);
+      box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.48), 0 28px 70px rgba(0, 0, 0, 0.36);
+    }
+
+    .visual::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(130, 233, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(rgba(130, 233, 255, 0.06) 1px, transparent 1px);
+      background-size: 44px 44px;
+      opacity: 0.75;
+    }
+
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: none;
+    }
+
+    .scene.active {
+      display: block;
+    }
+
+    .horizon {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 49%;
+      height: 2px;
+      background: rgba(130, 233, 255, 0.48);
+      box-shadow: 0 0 22px rgba(130, 233, 255, 0.35);
+    }
+
+    .route {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      top: 50%;
+      border-top: 8px dashed rgba(255, 209, 102, 0.92);
+      filter: drop-shadow(0 0 14px rgba(255, 209, 102, 0.42));
+    }
+
+    .route::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      top: -21px;
+      border-left: 34px solid rgba(255, 209, 102, 0.98);
+      border-top: 17px solid transparent;
+      border-bottom: 17px solid transparent;
+    }
+
+    .evtol {
+      position: absolute;
+      left: 13%;
+      top: 43%;
+      width: 170px;
+      height: 82px;
+      transform: translateY(-50%);
+      filter: drop-shadow(0 0 18px rgba(130, 233, 255, 0.58));
+      animation: craftShake 0.55s infinite;
+    }
+
+    @keyframes craftShake {
+      0%, 100% { transform: translateY(-50%) rotate(-1deg); }
+      50% { transform: translateY(-53%) rotate(1deg); }
+    }
+
+    .evtol .body {
+      position: absolute;
+      left: 60px;
+      top: 24px;
+      width: 54px;
+      height: 30px;
+      border: 4px solid var(--cyan);
+      border-radius: 18px;
+      background: rgba(130, 233, 255, 0.14);
+    }
+
+    .evtol .wing {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      top: 38px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--cyan);
+    }
+
+    .rotor {
+      position: absolute;
+      width: 46px;
+      height: 46px;
+      border: 4px solid var(--cyan);
+      border-radius: 50%;
+    }
+
+    .rotor::before {
+      content: "";
+      position: absolute;
+      left: 5px;
+      right: 5px;
+      top: 17px;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--cyan);
+      animation: spinHint 0.22s infinite linear;
+    }
+
+    @keyframes spinHint {
+      to { transform: rotate(180deg); }
+    }
+
+    .r1 { left: 0; top: 18px; }
+    .r2 { right: 0; top: 18px; }
+
+    .danger-zone {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: 26%;
+      height: 18%;
+      transform: translateY(-50%);
+      border: 5px solid var(--red);
+      border-radius: 50%;
+      box-shadow: 0 0 36px rgba(255, 52, 52, 0.68), inset 0 0 28px rgba(255, 52, 52, 0.28);
+      animation: dangerPulse 0.7s infinite;
+    }
+
+    @keyframes dangerPulse {
+      50% { transform: translateY(-50%) scale(1.08); }
+    }
+
+    .building {
+      position: absolute;
+      right: 9%;
+      bottom: 23%;
+      width: 24%;
+      height: 54%;
+      background:
+        repeating-linear-gradient(90deg, transparent 0 18%, rgba(255, 248, 237, 0.18) 18% 24%, transparent 24% 38%),
+        repeating-linear-gradient(180deg, #4a4e52 0 12%, #30353a 12% 18%);
+      border: 5px solid rgba(255, 248, 237, 0.88);
+      box-shadow: 0 0 34px rgba(255, 52, 52, 0.55);
+    }
+
+    .impact {
+      position: absolute;
+      right: 29%;
+      top: 44%;
+      width: 58px;
+      height: 58px;
+      transform: rotate(45deg);
+      background: var(--red);
+      clip-path: polygon(50% 0, 62% 35%, 100% 18%, 76% 50%, 100% 82%, 62% 65%, 50% 100%, 38% 65%, 0 82%, 24% 50%, 0 18%, 38% 35%);
+      filter: drop-shadow(0 0 18px rgba(255, 52, 52, 0.8));
+      animation: dangerPulse 0.55s infinite;
+    }
+
+    .fault-core {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      width: min(52%, 420px);
+      aspect-ratio: 1.3;
+      transform: translate(-50%, -50%);
+      border: 6px solid var(--red);
+      border-radius: 20px;
+      background: rgba(0, 0, 0, 0.42);
+      box-shadow: 0 0 42px rgba(255, 52, 52, 0.6), inset 0 0 40px rgba(255, 52, 52, 0.12);
+    }
+
+    .fault-core::after {
+      content: "FAIL";
+      position: absolute;
+      left: 50%;
+      top: 54%;
+      transform: translate(-50%, -50%);
+      color: var(--red);
+      font-size: clamp(74px, 8vw, 130px);
+      font-weight: 950;
+      text-shadow: 0 0 26px rgba(255, 52, 52, 0.56);
+      animation: textBlink 0.75s infinite;
+    }
+
+    .fault-lines {
+      position: absolute;
+      inset: 16%;
+      background:
+        linear-gradient(28deg, transparent 0 47%, var(--gold) 48% 51%, transparent 52% 100%),
+        linear-gradient(-24deg, transparent 0 48%, var(--red) 49% 52%, transparent 53% 100%);
+    }
+
+    @keyframes textBlink {
+      50% { opacity: 0.42; }
+    }
+
+    .wind-field {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .gust {
+      position: absolute;
+      left: -18%;
+      width: 78%;
+      height: 12px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, rgba(130, 233, 255, 0.95), transparent);
+      box-shadow: 0 0 24px rgba(130, 233, 255, 0.52);
+      animation: gustMove 1s infinite linear;
+    }
+
+    .gust::after {
+      content: "";
+      position: absolute;
+      right: 3%;
+      top: -13px;
+      border-left: 28px solid rgba(130, 233, 255, 0.95);
+      border-top: 19px solid transparent;
+      border-bottom: 19px solid transparent;
+    }
+
+    .g1 { top: 24%; animation-delay: 0s; }
+    .g2 { top: 38%; animation-delay: -0.2s; }
+    .g3 { top: 54%; animation-delay: -0.45s; }
+    .g4 { top: 68%; animation-delay: -0.65s; }
+
+    @keyframes gustMove {
+      to { transform: translateX(160%); }
+    }
+
+    .tilt-craft {
+      left: 42%;
+      top: 49%;
+      transform: translate(-50%, -50%) rotate(15deg);
+      animation: windShake 0.45s infinite;
+    }
+
+    @keyframes windShake {
+      0%, 100% { transform: translate(-50%, -50%) rotate(11deg); }
+      50% { transform: translate(-45%, -54%) rotate(20deg); }
+    }
+
+    @media (max-width: 980px) {
+      .grid,
+      .stimulus.show {
+        grid-template-columns: 1fr;
+      }
+
+      .visual {
+        min-height: 320px;
+        order: -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="setup" id="setup">
+    <div class="setup-card">
+      <h1 class="setup-title">选择实验组合</h1>
+      <p class="setup-subtitle">模态：L 听觉，V 视觉，LV 视听结合。危险：OB 前方障碍物，SYS 系统内部故障，WS 风切变。</p>
+      <div class="grid" id="comboGrid">
+        <button class="combo" type="button" data-mode="L" data-danger="OB"><b>L+OB</b><span>听觉 / 前方障碍物</span></button>
+        <button class="combo" type="button" data-mode="V" data-danger="OB"><b>V+OB</b><span>视觉 / 前方障碍物</span></button>
+        <button class="combo" type="button" data-mode="LV" data-danger="OB"><b>LV+OB</b><span>视听结合 / 前方障碍物</span></button>
+        <button class="combo" type="button" data-mode="L" data-danger="SYS"><b>L+SYS</b><span>听觉 / 系统内部故障</span></button>
+        <button class="combo" type="button" data-mode="V" data-danger="SYS"><b>V+SYS</b><span>视觉 / 系统内部故障</span></button>
+        <button class="combo" type="button" data-mode="LV" data-danger="SYS"><b>LV+SYS</b><span>视听结合 / 系统内部故障</span></button>
+        <button class="combo" type="button" data-mode="L" data-danger="WS"><b>L+WS</b><span>听觉 / 风切变</span></button>
+        <button class="combo" type="button" data-mode="V" data-danger="WS"><b>V+WS</b><span>视觉 / 风切变</span></button>
+        <button class="combo" type="button" data-mode="LV" data-danger="WS"><b>LV+WS</b><span>视听结合 / 风切变</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stimulus" id="stimulus" role="alert" aria-live="assertive">
+    <section class="message" aria-label="接管原因">
+      <h1>请接管：<span id="reasonTitle">系统内部故障</span></h1>
+    </section>
+
+    <section class="visual" aria-label="危险示意图">
+      <div class="scene" id="scene-obstacle">
+        <div class="horizon"></div>
+        <div class="route"></div>
+        <div class="danger-zone"></div>
+        <div class="evtol">
+          <div class="rotor r1"></div>
+          <div class="rotor r2"></div>
+          <div class="body"></div>
+          <div class="wing"></div>
+        </div>
+        <div class="building"></div>
+        <div class="impact"></div>
+      </div>
+
+      <div class="scene active" id="scene-fault">
+        <div class="fault-core">
+          <div class="fault-lines"></div>
+        </div>
+      </div>
+
+      <div class="scene" id="scene-wind">
+        <div class="wind-field">
+          <div class="gust g1"></div>
+          <div class="gust g2"></div>
+          <div class="gust g3"></div>
+          <div class="gust g4"></div>
+        </div>
+        <div class="evtol tilt-craft">
+          <div class="rotor r1"></div>
+          <div class="rotor r2"></div>
+          <div class="body"></div>
+          <div class="wing"></div>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <script>
+    const dangerMap = {
+      OB: {
+        title: "前方障碍物",
+        scene: "scene-obstacle",
+        audio: "audio/obstacle.mp3",
+      },
+      SYS: {
+        title: "系统内部故障",
+        scene: "scene-fault",
+        audio: "audio/fault.mp3",
+      },
+      WS: {
+        title: "风切变",
+        scene: "scene-wind",
+        audio: "audio/wind.mp3",
+      },
+    };
+
+    let selected = { mode: "V", danger: "SYS" };
+    let currentAudio = null;
+
+    const setup = document.getElementById("setup");
+    const stimulus = document.getElementById("stimulus");
+    const reasonTitle = document.getElementById("reasonTitle");
+
+    function stopAudio() {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+      }
+
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function prepareBlackScreen(mode, danger) {
+      selected = { mode, danger };
+      stopAudio();
+      stimulus.classList.remove("show");
+      setup.classList.add("hidden");
+      document.body.style.background = "#000";
+    }
+
+    function updateStimulus(danger) {
+      const item = dangerMap[danger];
+      reasonTitle.textContent = item.title;
+      document.querySelectorAll(".scene").forEach((scene) => {
+        scene.classList.toggle("active", scene.id === item.scene);
+      });
+    }
+
+    function playVoice(danger) {
+      stopAudio();
+      const item = dangerMap[danger];
+      const fallbackSpeech = () => {
+        if (!("speechSynthesis" in window)) return;
+        const utterance = new SpeechSynthesisUtterance(`请接管：${item.title}`);
+        utterance.lang = "zh-CN";
+        utterance.rate = 0.92;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        window.speechSynthesis.speak(utterance);
+      };
+
+      currentAudio = new Audio(item.audio);
+      currentAudio.preload = "auto";
+      currentAudio.volume = 1;
+      currentAudio.addEventListener("error", fallbackSpeech, { once: true });
+      currentAudio.play().catch(fallbackSpeech);
+    }
+
+    function triggerSelected() {
+      const shouldShowVisual = selected.mode === "V" || selected.mode === "LV";
+      const shouldPlayAudio = selected.mode === "L" || selected.mode === "LV";
+
+      if (shouldShowVisual) {
+        updateStimulus(selected.danger);
+        stimulus.classList.add("show");
+      }
+
+      if (shouldPlayAudio) {
+        playVoice(selected.danger);
+      }
+    }
+
+    function resetToSetup() {
+      stopAudio();
+      stimulus.classList.remove("show");
+      setup.classList.remove("hidden");
+    }
+
+    function returnToBlackScreen() {
+      stopAudio();
+      stimulus.classList.remove("show");
+      if (!setup.classList.contains("hidden")) {
+        setup.classList.add("hidden");
+      }
+      document.body.style.background = "#000";
+    }
+
+    document.getElementById("comboGrid").addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-mode][data-danger]");
+      if (!button) return;
+      prepareBlackScreen(button.dataset.mode, button.dataset.danger);
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.repeat) return;
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        if (!setup.classList.contains("hidden")) return;
+        triggerSelected();
+      }
+
+      if (event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        returnToBlackScreen();
+      }
+
+      if (event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        resetToSetup();
+      }
+
+      if (event.key === "Escape") {
+        resetToSetup();
+      }
+    });
+  </script>
+</body>
+</html>

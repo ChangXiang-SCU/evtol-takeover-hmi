@@ -1,0 +1,24 @@
+# --- Excluded from this public repo ---
+
+# Office / PDF / images — participant-recruitment & questionnaire files contain
+# personal information; the DevKit PDF is a vendor document. Kept out of the public repo.
+*.docx
+*.xlsx
+*.pptx
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Run artifacts / logs (may contain trial data)
+logs/
+*_log.txt
+verify_out.txt
+verify_err.txt
+fields_dump.txt
+*.pyc

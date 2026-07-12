@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>eVTOL 接管请求 HMI（测试版）</title>
+<style>
+  html,body{margin:0;height:100%;font-family:"Microsoft YaHei",system-ui,sans-serif;background:#0e1116;color:#e6edf3;-webkit-user-select:none;user-select:none}
+  #wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;transition:background .1s}
+  #wrap.alert{background:#5c0d12}
+  #status{font-size:5vh;opacity:.7;margin-bottom:2vh}
+  #msg{font-size:8vh;font-weight:800;line-height:1.2;min-height:10vh;padding:0 4vw}
+  #cause{font-size:3.5vh;opacity:.75;margin-top:1vh;height:4vh}
+  #take{display:none;margin-top:5vh;font-size:6vh;font-weight:800;color:#fff;background:#d33;border:none;border-radius:3vh;padding:4vh 12vw;box-shadow:0 0 40px rgba(255,60,60,.6);cursor:pointer}
+  #take:active{transform:scale(.96)}
+  #done{display:none;font-size:5vh;color:#3fb950;margin-top:4vh}
+  #bar{position:fixed;top:0;left:0;right:0;padding:1.2vh;font-size:2.4vh;background:#161b22;color:#8b949e;display:flex;justify-content:space-between}
+  #enable{position:fixed;inset:0;background:#0e1116;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:9}
+  #enable button{font-size:5vh;padding:3vh 8vw;border-radius:2vh;border:none;background:#238636;color:#fff;font-weight:700;margin-top:3vh}
+</style>
+</head>
+<body>
+<div id="bar"><span id="conn">● 连接中…</span><span id="modality"></span></div>
+
+<div id="enable">
+  <div style="font-size:4vh">eVTOL 接管请求 HMI（测试版）</div>
+  <div style="font-size:2.6vh;opacity:.6;margin-top:2vh;padding:0 8vw">点击进入以启用声音提示（浏览器要求先有一次交互）</div>
+  <button onclick="enableAudio()">进入监控</button>
+</div>
+
+<div id="wrap">
+  <div id="status">● 监控中</div>
+  <div id="msg"></div>
+  <div id="cause"></div>
+  <button id="take" onclick="takeover()">接 管</button>
+  <div id="done">已接管 ✓</div>
+</div>
+
+<script>
+// ============ 参考实现：接管请求 HMI ============
+// 与事件控制器的契约：
+//   收：GET /events (SSE) → {type:"takeover_request", event_id, t0, modality, cause, text}
+//   发：POST /takeover   → {event_id, t_click_client}
+// modality: "audio" | "visual" | "multimodal"
+let audioOK = false, current = null;
+
+function enableAudio(){
+  try{
+    const c = new (window.AudioContext||window.webkitAudioContext)();
+    if(c.state==="suspended") c.resume();
+    window._ac = c; audioOK = true;
+  }catch(e){}
+  document.getElementById("enable").style.display = "none";
+}
+
+function beep(){
+  if(!audioOK||!window._ac) return;
+  const c = window._ac, o = c.createOscillator(), g = c.createGain();
+  o.type="square"; o.frequency.value=880; o.connect(g); g.connect(c.destination);
+  g.gain.setValueAtTime(0.001,c.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.4,c.currentTime+0.02);
+  let t=c.currentTime;
+  // 三声急促提示音
+  for(let i=0;i<3;i++){ g.gain.setValueAtTime(0.4,t+i*0.22); g.gain.exponentialRampToValueAtTime(0.001,t+i*0.22+0.18); }
+  o.start(); o.stop(t+0.7);
+}
+function speak(text){
+  if(!("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang="zh-CN"; u.rate=1.1;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+function onTakeoverRequest(ev){
+  current = ev;
+  const wrap=document.getElementById("wrap");
+  const useAudio  = ev.modality==="audio"||ev.modality==="multimodal";
+  const useVisual = ev.modality==="visual"||ev.modality==="multimodal";
+  document.getElementById("modality").textContent = "模态: "+ev.modality;
+  // 视觉
+  wrap.classList.add("alert");
+  document.getElementById("status").style.display="none";
+  document.getElementById("msg").textContent = useVisual ? (ev.text||"请接管") : "请接管";
+  document.getElementById("cause").textContent = "诱因: "+(ev.cause||"");
+  document.getElementById("done").style.display="none";
+  document.getElementById("take").style.display="inline-block";
+  // 听觉
+  if(useAudio){ beep(); speak(ev.text||"请接管"); }
+}
+
+function takeover(){
+  const payload = {event_id: current?current.event_id:null, t_click_client: Date.now()/1000};
+  fetch("/takeover",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  document.getElementById("take").style.display="none";
+  document.getElementById("done").style.display="block";
+}
+
+function reset(){
+  const wrap=document.getElementById("wrap");
+  wrap.classList.remove("alert");
+  document.getElementById("status").style.display="block";
+  document.getElementById("msg").textContent="";
+  document.getElementById("cause").textContent="";
+  document.getElementById("take").style.display="none";
+  document.getElementById("done").style.display="none";
+}
+
+function connect(){
+  const es = new EventSource("/events");
+  const conn=document.getElementById("conn");
+  es.onopen = ()=> conn.textContent="● 已连接";
+  es.onerror= ()=> conn.textContent="● 断线重连…";
+  es.onmessage = (e)=>{
+    let d; try{ d=JSON.parse(e.data); }catch(_){ return; }
+    if(d.type==="takeover_request") onTakeoverRequest(d);
+    else if(d.type==="reset") reset();
+  };
+}
+connect();
+</script>
+</body>
+</html>

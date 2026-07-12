@@ -1,0 +1,32 @@
+[预检] DevKit OK, 字段=76, 当前 alt=53 AGL=9 on_ground=1.0
+
+===== TRIAL T1_windshear | 诱因=wind_shear 模态=multimodal =====
+[传送] 到触发区正上方 (23.139094,113.276222) @ 662ft (带 382-582 之上)
+[下降] 逐步降入高度带...
+[t0] ★带内触发★ d=0m alt=572 (带 382-582) -> /ap_stop + HMI(multimodal) + 风切变注入(-50@25Hz)
+[C] 模拟触摸屏接管 POST /takeover
+[结果] HMI收到=True | 接管RT=1.859 s | 风切变掉高=0.0ft | maxG=1.00
+   [恢复] AGL=9 alt=572 VBY=-50.0
+[TRIAL 完成] {'id': 'T1_windshear', 'cause': 'wind_shear', 'modality': 'multimodal', 'visibility': 'normal', 't0': 1783498294.597, 'in_zone_alt_ft': 572.2, 'hmi_received': True, 'rt_takeover_s': 1.859, 'ws_drop_ft': 0.0, 'max_g': 1.0, 'note': '', 'tel_file': 'tel_R_T1_windshear.csv'}
+
+===== TRIAL T2_apfail | 诱因=ap_fail 模态=audio =====
+[传送] 到触发区正上方 (23.139614,113.277990) @ 541ft (带 261-461 之上)
+[下降] 逐步降入高度带...
+[t0] ★带内触发★ d=0m alt=451 (带 261-461) -> /ap_stop + HMI(audio) + (无注入)
+[C] 模拟触摸屏接管 POST /takeover
+[结果] HMI收到=True | 接管RT=1.839 s | maxG=1.00
+   [恢复] AGL=9 alt=451 VBY=-50.0
+[TRIAL 完成] {'id': 'T2_apfail', 'cause': 'ap_fail', 'modality': 'audio', 'visibility': 'normal', 't0': 1783498311.948, 'in_zone_alt_ft': 450.6, 'hmi_received': True, 'rt_takeover_s': 1.839, 'ws_drop_ft': '', 'max_g': 1.0, 'note': '', 'tel_file': 'tel_R_T2_apfail.csv'}
+
+===== TRIAL T3_obstacle | 诱因=obstacle 模态=visual =====
+[传送] 到触发区正上方 (23.141696,113.276120) @ 580ft (带 250-500 之上)
+[下降] 逐步降入高度带...
+[t0] ★带内触发★ d=0m alt=490 (带 250-500) -> /ap_stop + HMI(visual) + (无注入)
+[C] 模拟触摸屏接管 POST /takeover
+[结果] HMI收到=True | 接管RT=1.825 s | maxG=1.00
+   [恢复] AGL=9 alt=490 VBY=-50.0
+[TRIAL 完成] {'id': 'T3_obstacle', 'cause': 'obstacle', 'modality': 'visual', 'visibility': 'low', 't0': 1783498329.674, 'in_zone_alt_ft': 490.0, 'hmi_received': True, 'rt_takeover_s': 1.825, 'ws_drop_ft': '', 'max_g': 1.0, 'note': '', 'tel_file': 'tel_R_T3_obstacle.csv'}
+
+[汇总] 事件表 -> C:\Users\Chang\Documents\Claude\Projects\eVTOL 自主飞行接管\controller\logs\session_real.csv
+[SSE] 监听器共收到 takeover_request 次数 = 3
+=== 真机三场景运行结束 ===

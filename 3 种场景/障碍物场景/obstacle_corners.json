@@ -1,0 +1,151 @@
+{
+  "description": "障碍物角点 — 建筑物楼顶角点，竖直向下为障碍物柱体区间",
+  "zone_model": "vertical_pillar",
+  "zone_note": "每个角点自楼顶高度(MSL)竖直向下延伸至地面；相邻角点连线围成柱状障碍物区域",
+  "corners": [
+    {
+      "id": 1,
+      "name": "角点1",
+      "saved_at_utc": "2026-07-07T09:13:13Z",
+      "latitude": 23.141804382824166,
+      "longitude": 113.27572016446751,
+      "altitude_ft_msl": 396.5839528377905,
+      "altitude_ft_agl": 328.66447862046357,
+      "ground_altitude_ft": 20.701855741441246,
+      "heading_true_deg": 2.1507293983835734,
+      "vertical_obstacle": {
+        "top_ft_msl": 396.5839528377905,
+        "bottom_ft_msl": 20.701855741441246,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 2,
+      "name": "角点2",
+      "saved_at_utc": "2026-07-07T09:13:40Z",
+      "latitude": 23.141669470582833,
+      "longitude": 113.27574406890164,
+      "altitude_ft_msl": 398.8032007772869,
+      "altitude_ft_agl": 333.6468291567519,
+      "ground_altitude_ft": 19.859662069939077,
+      "heading_true_deg": 2.976779871390901,
+      "vertical_obstacle": {
+        "top_ft_msl": 398.8032007772869,
+        "bottom_ft_msl": 19.859662069939077,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 3,
+      "name": "角点3",
+      "saved_at_utc": "2026-07-07T09:13:57Z",
+      "latitude": 23.141601089099318,
+      "longitude": 113.27579142059398,
+      "altitude_ft_msl": 400.3986972894686,
+      "altitude_ft_agl": 335.08208441810973,
+      "ground_altitude_ft": 19.90850360319018,
+      "heading_true_deg": 2.3417199888222857,
+      "vertical_obstacle": {
+        "top_ft_msl": 400.3986972894686,
+        "bottom_ft_msl": 19.90850360319018,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 4,
+      "name": "角点4",
+      "saved_at_utc": "2026-07-07T09:14:38Z",
+      "latitude": 23.141372844416672,
+      "longitude": 113.27622394514535,
+      "altitude_ft_msl": 392.8850783513914,
+      "altitude_ft_agl": 307.6658940773469,
+      "ground_altitude_ft": 25.97480736672878,
+      "heading_true_deg": 2.037593548226223,
+      "vertical_obstacle": {
+        "top_ft_msl": 392.8850783513914,
+        "bottom_ft_msl": 25.97480736672878,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 5,
+      "name": "角点5",
+      "saved_at_utc": "2026-07-07T09:15:03Z",
+      "latitude": 23.141451667884237,
+      "longitude": 113.27646206624308,
+      "altitude_ft_msl": 391.3584682673061,
+      "altitude_ft_agl": 267.5731803891258,
+      "ground_altitude_ft": 37.72975574526936,
+      "heading_true_deg": 0.9379975110541628,
+      "vertical_obstacle": {
+        "top_ft_msl": 391.3584682673061,
+        "bottom_ft_msl": 37.72975574526936,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 6,
+      "name": "角点6",
+      "saved_at_utc": "2026-07-07T09:15:17Z",
+      "latitude": 23.14154335204694,
+      "longitude": 113.27646315603454,
+      "altitude_ft_msl": 391.85081670368066,
+      "altitude_ft_agl": 297.12006062006975,
+      "ground_altitude_ft": 28.87393445428461,
+      "heading_true_deg": 5.973542295407999,
+      "vertical_obstacle": {
+        "top_ft_msl": 391.85081670368066,
+        "bottom_ft_msl": 28.87393445428461,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 7,
+      "name": "角点7",
+      "saved_at_utc": "2026-07-07T09:15:42Z",
+      "latitude": 23.14192051648747,
+      "longitude": 113.27639096132611,
+      "altitude_ft_msl": 389.9151877650038,
+      "altitude_ft_agl": 284.43905420541046,
+      "ground_altitude_ft": 32.14912550896406,
+      "heading_true_deg": 6.1131808760730095,
+      "vertical_obstacle": {
+        "top_ft_msl": 389.9151877650038,
+        "bottom_ft_msl": 32.14912550896406,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 8,
+      "name": "角点8",
+      "saved_at_utc": "2026-07-07T09:16:05Z",
+      "latitude": 23.142021150511322,
+      "longitude": 113.27621695098128,
+      "altitude_ft_msl": 392.59165663571787,
+      "altitude_ft_agl": 185.85381372197642,
+      "ground_altitude_ft": 63.013694520108395,
+      "heading_true_deg": 5.196203203121501,
+      "vertical_obstacle": {
+        "top_ft_msl": 392.59165663571787,
+        "bottom_ft_msl": 63.013694520108395,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    },
+    {
+      "id": 9,
+      "name": "角点9",
+      "saved_at_utc": "2026-07-07T09:18:37Z",
+      "latitude": 23.141879483595144,
+      "longitude": 113.27606399412211,
+      "altitude_ft_msl": 397.1676339863214,
+      "altitude_ft_agl": 310.48599085450417,
+      "ground_altitude_ft": 26.420564826577902,
+      "heading_true_deg": 3.5176125251302075,
+      "vertical_obstacle": {
+        "top_ft_msl": 397.1676339863214,
+        "bottom_ft_msl": 26.420564826577902,
+        "note": "自角点楼顶高度竖直向下至该处地面海拔"
+      }
+    }
+  ]
+}
