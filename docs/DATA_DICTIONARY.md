@@ -1,15 +1,15 @@
 # 采集 CSV 字段说明 · Data dictionary
 
 采集文件存于 sim 主机 `F:\Evtol_TAKEOVER\`，命名 `被试_诱因_模态_时间.csv`，编码 UTF‑8‑SIG（Excel 可直接打开）。
-每帧一行（约 18–20 行/秒，随 `CONTROL_HZ`），列顺序 = **6 个采集上下文列**（在最前）+ **76 个 DevKit 字段**（按字母序，与 `/get` 一致）。
+每帧一行（约 18–20 行/秒，随 `CONTROL_HZ`），列顺序 = **11 个采集上下文列**（在最前）+ **76 个 DevKit 字段**（按字母序，与 `/get` 一致）。
 
-The recording CSV lives at `F:\Evtol_TAKEOVER\` on the sim host, named `subject_cause_modality_time.csv`, UTF‑8‑SIG. One row per frame (~18–20 rows/s). Columns = **6 context columns** first, then **76 DevKit fields** (alphabetical, matching `/get`).
+The recording CSV lives at `F:\Evtol_TAKEOVER\` on the sim host, named `subject_cause_modality_time.csv`, UTF‑8‑SIG. One row per frame (~18–20 rows/s). Columns = **11 context columns** first, then **76 DevKit fields** (alphabetical, matching `/get`).
 
 > 本机型特有映射 / airframe‑specific mapping：`GENERAL_ENG_THROTTLE_LEVER_POSITION:1` = 前后(fore/aft)，`ELEVATOR_POSITION` = 升降(vertical)，`VELOCITY_BODY_X` 飞行中写入不生效。见 [DESIGN](DESIGN.zh-CN.md)。
 
 ---
 
-## A. 采集上下文列 (context columns, CSV 最前 6 列)
+## A. 采集上下文列 (context columns, CSV 最前 11 列)
 
 | 列 Column | 单位 Unit | 说明 · Description |
 |---|---|---|
@@ -19,6 +19,11 @@ The recording CSV lives at `F:\Evtol_TAKEOVER\` on the sim host, named `subject_
 | `phase` | — | 试次阶段：`idle`/`waiting`/`alerted`/`triggered`/`takeover`。Trial phase |
 | `cause` | — | 当前诱因：`wind_shear`/`ap_fail`/`obstacle`/`blank`/空。Armed cause |
 | `modality` | — | HMI 模态：`visual`/`audio`/`multimodal`。HMI modality |
+| `ap_on` | — | 该帧自动驾驶状态：`True` 开 / `False` 关 / 空未知。**Autopilot on/off** at this frame |
+| `in_zone` | — | 是否在触发区内(半径 + 高度带同时满足)。Inside the trigger zone |
+| `dist_trig_m` | 米 m | 到触发区中心的水平距离(未 arm 诱因为空)。Horizontal distance to trigger centre |
+| `eta_s` | 秒 s | 预计进入触发区的秒数(接近中才有值)。Predicted seconds to enter the zone |
+| `rt_s` | 秒 s | 接管反应时(接管后每帧同值, 之前为空)。Takeover reaction time (constant after takeover) |
 
 ## B. DevKit 字段 (76, 按 CSV/字母序)
 

@@ -6,7 +6,7 @@ def post(path, body=None):
     data = json.dumps(body).encode() if body is not None else b""
     req = urllib.request.Request("http://127.0.0.1:8000" + path, data=data, method="POST",
                                  headers={"Content-Type": "application/json"})
-    return urllib.request.urlopen(req, timeout=5).read().decode()
+    return urllib.request.urlopen(req, timeout=10).read().decode()
 
 print("rec_start ->", post("/rec_start", {"subject": "TEST"}))
 time.sleep(2.5)

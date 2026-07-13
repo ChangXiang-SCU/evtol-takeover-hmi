@@ -112,7 +112,10 @@ def cmd_set(ax, v):
 def capture_rest():
     """抓摇杆静息位(此刻被试没在操纵)：arm 时与重开 AP 时调用。"""
     global _DEV_N
-    st = client.get_state() or {}
+    try:
+        st = client.get_state() or {}
+    except Exception:
+        st = {}
     with LOCK:
         for ax in config.CONTROL_AXES:
             REST[ax] = g(st, ax)
@@ -442,14 +445,13 @@ def rec_start(subject):
     with REC_LOCK:
         if REC["on"]:
             return True, REC["path"]
-        st = client.get_state() or {}
-        for _ in range(6):                       # DevKit 偶发空帧 → 重试拿到字段
-            if st:
-                break
-            time.sleep(0.12); st = client.get_state() or {}
+        try:
+            st = client.get_state() or {}        # 单次探一帧拿字段做表头; MSFS在菜单会超时→干净失败,不卡
+        except Exception:
+            st = {}
         fields = sorted(st.keys())
         if not fields:
-            REC["err"] = "DevKit 无数据, 未开始"; return False, REC["err"]
+            REC["err"] = "DevKit 无数据(MSFS未进入飞行?), 未开始"; return False, REC["err"]
         cause = STATE.get("armed_cause") or "na"
         modality = SETTINGS.get("modality") or "na"
         subj = "".join(ch for ch in (subject or "").strip() if ch.isalnum() or ch in "_-") or "S"
@@ -461,7 +463,8 @@ def rec_start(subject):
         except Exception as e:
             REC["err"] = "建目录/文件失败:%s" % e; return False, str(e)
         w = csv.writer(f)
-        w.writerow(["ts_unix", "ts_local", "rel_t0_s", "phase", "cause", "modality"] + fields)
+        w.writerow(["ts_unix", "ts_local", "rel_t0_s", "phase", "cause", "modality",
+                    "ap_on", "in_zone", "dist_trig_m", "eta_s", "rt_s"] + fields)
         REC.update({"on": True, "file": f, "writer": w, "fields": fields, "path": path,
                     "name": fname, "subject": subj, "n": 0, "started": time.time(), "err": ""})
     print("[采集] 开始 ->", path)
@@ -489,7 +492,9 @@ def rec_write(st):
         loc = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)) + (".%03d" % int(round((now - int(now)) * 1000)))
         rel = (now - STATE["t0"]) if STATE.get("t0") else ""
         row = [round(now, 3), loc, (rel if rel == "" else round(rel, 3)),
-               STATE.get("phase"), STATE.get("armed_cause"), SETTINGS.get("modality")]
+               STATE.get("phase"), STATE.get("armed_cause"), SETTINGS.get("modality"),
+               STATE.get("ap_on"), STATE.get("in_zone"), STATE.get("dist"),
+               STATE.get("eta"), STATE.get("rt")]
         row += [st.get(c) for c in REC["fields"]]
         try:
             w.writerow(row); REC["n"] += 1
