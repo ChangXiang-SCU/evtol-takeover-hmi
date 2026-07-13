@@ -120,8 +120,6 @@ def manual_input(evidence=""):
     print("[通道B] 判定手动操控 %s ap_on=%s t0=%s" % (evidence, was_ap, STATE["t0"]))
     if was_ap:
         AUTO_STOP.set()                    # 航线线程退出并回中舵面/油门中性
-        try: client.ap_stop()              # 释放可能在顶住的旋翼定点悬停(风切变保持悬停时),交还被试
-        except Exception: pass
         with LOCK: STATE["ap_on"] = False
     if STATE["t0"] and STATE["rt"] is None:
         mark_takeover("control")
@@ -373,9 +371,8 @@ def do_alert(cause, manual=False):
                "lead_s": config.ALERT_LEAD_S})
 
 def do_cause(cause):
-    """预警 ALERT_LEAD_S 秒后：诱因生效。
-    AP 还开着→断开(ap_stop)+清速度。此机型断AP后靠自身飞控**被动悬停**(保持高度+姿态自稳,不会掉),
-    风切变把横向阵风叠加其上,被试可用杆实时对抗;已被手动接管→AP 保持 off。"""
+    """预警 ALERT_LEAD_S 秒后：诱因生效。AP 还开着→断开+悬停(清速度,旋翼自稳)；
+    已被手动接管→AP 状态保持 off 不动。"""
     with LOCK:
         if STATE["cause_fired"]:
             return
@@ -383,55 +380,34 @@ def do_cause(cause):
         was_ap = STATE["ap_on"]
         if STATE["phase"] == "alerted":
             STATE["phase"] = "triggered"
-    if was_ap:
-        AUTO_STOP.set()                        # 停自主航线(线程收尾回中舵面/油门中性)
-        try: client.ap_stop()                  # 断AP——飞机自身被动悬停(不会掉)
-        except Exception: pass
-        _zero_vel()                            # 清速度→被动悬停起点
-        with LOCK: STATE["ap_on"] = False
+        STATE["note"] += "；诱因生效" + ("" if was_ap else "(已手动,AP保持off)")
     if cause == "wind_shear":
         INJECT_STOP.clear()
         threading.Thread(target=inject_windshear, daemon=True).start()
-    with LOCK: STATE["note"] += "；诱因生效(断AP·被动悬停)" + ("" if was_ap else "(已手动)")
+    if was_ap:
+        AUTO_STOP.set()                    # 断自主航线(线程收尾回中舵面/油门中性)
+        try: client.ap_stop()
+        except Exception: pass
+        _zero_vel()                        # 清速度→原地悬停(同传送落定状态)
     broadcast({"type": "cause_active", "cause": cause})
 
 def inject_windshear():
-    """末端横向风切变/阵风:持续注入 横向阵风(VBX) + 一定垂直扰动(VBY),正弦调制来回吹。
-    **不强写横滚**——强写会让被试修不动;滚转由 飞机(自动悬停在顶)/被试 对横向推移的响应
-    自然产生,被试可用杆实时对抗。收尾清横向/垂向速度(不动横滚,交还被试)。
-    滚转手感不够可加大 lateral_vx_fts;若想额外"踢"一下滚转再单独加冲量。"""
-    ws = config.WIND_SHEAR
-    hz = max(10.0, config.WIND_SHEAR_INJECT_HZ)
-    gh = ws.get("gust_hz", 0.8)
-    vx = ws.get("lateral_vx_fts", 26.0)
-    dn = abs(ws.get("down_vspeed_fts", -22.0)); loss = ws.get("speed_loss_frac", 0.0)
+    ws = config.WIND_SHEAR; end = time.time() + ws["duration_s"]
     z0 = g(client.get_state() or {}, config.SV_VEL_BODY_Z)
-    t0 = time.time(); end = t0 + ws["duration_s"]
     while time.time() < end and not INJECT_STOP.is_set():
-        s = math.sin(2 * math.pi * gh * (time.time() - t0))        # -1..1 阵风相位
         try:
-            client.set_param(config.SV_VEL_BODY_X, vx * s)                     # 横向推移(右/左来回)
-            client.set_param(config.SV_VEL_BODY_Y, -dn * (0.4 + 0.6 * abs(s))) # 下沉阵风
-            if loss > 0:
-                client.set_param(config.SV_VEL_BODY_Z, z0 * (1 - loss))        # (可选)纵向空速骤减
+            client.set_param(config.SV_VEL_BODY_Y, ws["down_vspeed_fts"])
+            client.set_param(config.SV_VEL_BODY_Z, z0 * (1 - ws["speed_loss_frac"]))
         except Exception: pass
-        time.sleep(1.0 / hz)
-    try:
-        client.set_param(config.SV_VEL_BODY_X, 0.0)
-        client.set_param(config.SV_VEL_BODY_Y, 0.0)
-    except Exception: pass
+        time.sleep(1.0 / config.WIND_SHEAR_INJECT_HZ)
 
 def mark_takeover(channel):
-    fired = False; rtv = None
     with LOCK:
         if STATE["t0"] and STATE["rt"] is None:
             rt = round(time.time() - STATE["t0"], 3)
             STATE["rt"] = rt; STATE["rt_" + channel] = rt; STATE["phase"] = "takeover"
             STATE["note"] += " 接管(%s)" % channel
-            fired = True; rtv = rt
-    if fired:
-        broadcast({"type": "takeover_done", "channel": channel, "rt": rtv})  # 通知HMI:红色报警→已接管
-        append_event()
+    append_event()
 
 def monitor_loop():
     period = 1.0 / config.CONTROL_HZ
@@ -594,7 +570,7 @@ async function tick(){try{let s=await(await fetch('/status')).json();
  let mi={wind_shear:0,ap_fail:1,obstacle:2,blank:3};if(s.armed_cause!=null&&mi[s.armed_cause]!=null)document.querySelectorAll('.c4 button')[mi[s.armed_cause]].classList.add('sel');
  // 横幅
  if(s.phase=='idle'){b.firstChild.textContent='准备';document.getElementById('bsub').textContent='先选 HMI 模态，再点一个诱因'}
- else if(s.phase=='waiting'){b.firstChild.textContent='等待接近触发区 · '+(CN[s.armed_cause]||'');document.getElementById('bsub').textContent=(s.armed_ok?'已 ARMED ✓ 预计进区≤10s时预警':'请先飞到区外建立 ARMED')+(s.eta!=null?(' · 预计进区 '+s.eta+' s'):'')+(s.in_zone?' · 现在区内':'')}
+ else if(s.phase=='waiting'){b.firstChild.textContent='等待接近触发区 · '+(CN[s.armed_cause]||'');document.getElementById('bsub').textContent=(s.armed_ok?'已 ARMED ✓ 预计进区≤5s时预警':'请先飞到区外建立 ARMED')+(s.eta!=null?(' · 预计进区 '+s.eta+' s'):'')+(s.in_zone?' · 现在区内':'')}
  else if(s.phase=='alerted'){let left=s.trigger_at?Math.max(0,(s.trigger_at-Date.now()/1000)).toFixed(1):'—';b.firstChild.textContent='⚠ 预警中 · '+(CN[s.armed_cause]||'');document.getElementById('bsub').textContent='RT 计时中 · '+left+' s 后诱因生效（动杆或点屏=接管）'}
  else if(s.phase=='triggered'){b.firstChild.textContent='★诱因已生效★ '+(CN[s.armed_cause]||'');document.getElementById('bsub').textContent=(s.ap_on===false?'AP已断开·悬停中 · ':'')+'等待被试接管（点触摸屏 或 动操纵杆）'}
  else if(s.phase=='takeover'){b.firstChild.textContent='已接管 · '+(CN[s.armed_cause]||'');document.getElementById('bsub').textContent='RT = '+s.rt+' s'+(s.cause_fired?'':' · 诱因未生效即接管')}
@@ -619,39 +595,26 @@ HMI_HTML = """<!doctype html><html><head><meta charset=utf-8>
 html,body{margin:0;height:100%;background:#0b0f16;color:#fff;overflow:hidden}
 #s{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.12s}
 #big{font-size:8vw;font-weight:900;text-align:center;padding:0 4vw}
-#sub{font-size:3vw;margin-top:1.6vh;opacity:.92;text-align:center}
 #tk{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);font-size:4vw;padding:2.4vh 10vw;border-radius:16px;background:#fff;color:#000;font-weight:800;border:0}
-.calm{background:#0b0f16}.alarm{background:#c00}.done{background:#137a43}
-#apst{position:fixed;left:3vw;top:3vh;font-size:2.4vw;padding:1.1vh 2.6vw;border-radius:10px;background:#1f2836;color:#cbd5e1;font-weight:700}
-#apst.on{background:#166534;color:#eafff0}#apst.off{background:#7f1d1d;color:#ffecec}
+.calm{background:#0b0f16}.alarm{background:#c00}
 #reapbtn{position:fixed;right:3vw;top:3vh;font-size:2.6vw;padding:1.6vh 3.5vw;border-radius:12px;background:#2563eb;color:#fff;font-weight:800;border:0}
-</style></head><body>
-<div id=apst>自动驾驶 —</div>
-<div id=s class=calm><div id=big>监控中</div><div id=sub></div></div>
-<button id=tk onclick="tk()">接 管</button><button id=reapbtn onclick="reap()">🔄 切回自动驾驶</button>
+</style></head><body><div id=s class=calm>
+<div id=big>监控中</div></div><button id=tk onclick="tk()">接 管</button><button id=reapbtn onclick="reap()">🔄 切回自动驾驶</button>
 <script>
 const CN={wind_shear:'检测到风切变',ap_fail:'自动驾驶故障',obstacle:'前方障碍物',blank:'请接管'};
-let ev,actx,ftimer;
+let ev,actx;
 function tk(){fetch('/takeover',{method:'POST'})}
 function reap(){fetch('/ap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:true})})}
 function beep(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();let n=0,t=setInterval(()=>{let o=actx.createOscillator(),gg=actx.createGain();o.frequency.value=880;o.connect(gg);gg.connect(actx.destination);gg.gain.value=.25;o.start();o.stop(actx.currentTime+.18);if(++n>=4)clearInterval(t)},260)}catch(_){}}
-function speak(t){try{window.speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=1.05;window.speechSynthesis.speak(u)}catch(_){}}
-function stopflash(){if(ftimer){clearInterval(ftimer);ftimer=null}}
-function scr(c){stopflash();document.getElementById('s').className=c}
-function flash(){let s=document.getElementById('s'),n=0;stopflash();ftimer=setInterval(()=>{s.className=(n++%2==0)?'alarm':'calm';if(n>16){stopflash();s.className='alarm'}},220)}
-async function pollap(){try{let s=await(await fetch('/status')).json();let e=document.getElementById('apst');
- if(s.ap_on===true){e.textContent='自动驾驶 开';e.className='on'}
- else if(s.ap_on===false){e.textContent='自动驾驶 关';e.className='off'}
- else{e.textContent='自动驾驶 —';e.className=''}}catch(_){}}
+function flash(){let s=document.getElementById('s'),n=0,t=setInterval(()=>{s.className=(n++%2==0)?'alarm':'calm';if(n>12){clearInterval(t);s.className='alarm'}},220)}
 function conn(){ev=new EventSource('/events');
  ev.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(_){return}
-  if(d.type=='takeover_request'){let m=d.modality||'multimodal',cn=CN[d.cause]||d.text||'请接管';
-   if(m=='visual'||m=='multimodal'){document.getElementById('big').textContent='⚠ 请接管 · '+cn;document.getElementById('sub').textContent='动杆或点屏接管';flash()}
-   if(m=='audio'||m=='multimodal'){beep();speak(cn+'，请接管')}}
-  else if(d.type=='takeover_done'){scr('done');document.getElementById('big').textContent='✓ 已接管';document.getElementById('sub').textContent=(d.rt!=null?('反应时 '+d.rt+' s'):'')+(d.channel=='touch'?'（触摸屏）':'（操纵杆）');try{window.speechSynthesis.cancel()}catch(_){}}
-  else if(d.type=='reset'){scr('calm');document.getElementById('big').textContent='监控中';document.getElementById('sub').textContent=''}};
+  if(d.type=='takeover_request'){let m=d.modality||'multimodal';
+   if(m=='visual'||m=='multimodal'){document.getElementById('big').textContent='⚠ 请接管 · '+(CN[d.cause]||d.text);flash()}
+   if(m=='audio'||m=='multimodal'){beep()}}
+  else if(d.type=='reset'){document.getElementById('big').textContent='监控中';document.getElementById('s').className='calm'}};
  ev.onerror=()=>{ev.close();setTimeout(conn,1500)}}
-conn();pollap();setInterval(pollap,600);
+conn();
 </script></body></html>"""
 
 def zone_desc(cause):
@@ -717,7 +680,7 @@ class H(BaseHTTPRequestHandler):
         elif self.path.startswith("/fire"):
             c = STATE["armed_cause"] or "blank"
             if STATE["phase"] == "idle": STATE["phase"] = "waiting"
-            do_alert(c, manual=True); self._send(200, '{"ok":1}')   # 手动=立即预警,ALERT_LEAD_S 秒后诱因生效
+            do_alert(c, manual=True); self._send(200, '{"ok":1}')   # 手动=立即预警,5s后诱因生效
         elif self.path.startswith("/reset"):
             reset(); self._send(200, '{"ok":1}')
         elif self.path.startswith("/takeover"):

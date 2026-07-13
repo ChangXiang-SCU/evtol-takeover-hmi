@@ -53,8 +53,8 @@ The operator arms a cause; `monitor_loop` auto‑triggers when the aircraft is i
 
 | Cause | Trigger centre | Radius | Altitude band | Effect at trigger |
 |---|---|---|---|---|
-| wind shear | 23.13909, 113.27622 | 50 m | 382–582 ft | inject `VELOCITY_BODY_Y` downdraft + longitudinal speed loss; HMI takeover request |
-| AP failure | 23.13961, 113.27799 | 50 m | 260–460 ft | `/ap_stop` + AUTO_STOP (hand to subject); HMI takeover request |
+| wind shear | 23.13909, 113.27622 | 50 m | 382–582 ft | terminal lateral gust: inject `VELOCITY_BODY_X` + some `VELOCITY_BODY_Y` (sinusoidal). The AP is disconnected and the airframe passively hovers while the subject counters the gust in real time. HMI takeover request |
+| AP failure | 23.13957, 113.27645 | 50 m | 260–460 ft | `/ap_stop` + AUTO_STOP (hand to subject); HMI takeover request. Trigger sits on the shared wind‑shear approach line |
 | obstacle | 23.141696, 113.276120 | 60 m | 250–500 ft | HMI alert only; AP continues to pad. Approach targets **mid‑band (≈375 ft)** so it meets the rooftops rather than overflying them |
 
 The wind‑shear downdraft works only with **dense, large** `VELOCITY_BODY_Y` injection (≈ −50 ft/s, high rate); small/sparse values do almost nothing.
