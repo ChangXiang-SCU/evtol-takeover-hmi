@@ -22,3 +22,6 @@ verify_out.txt
 verify_err.txt
 fields_dump.txt
 *.pyc
+
+# JS 语法自检临时文件
+_*.js

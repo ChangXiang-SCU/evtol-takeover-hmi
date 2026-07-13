@@ -53,6 +53,10 @@ _DEV_N = 0    # 连续超死区采样计数
 INJECT_STOP = threading.Event()
 AUTO_STOP = threading.Event()   # 阶梯式自动驾驶航线的停止标志
 SUBS = []  # SSE 队列
+REC_LOCK = threading.Lock()
+REC_DIR = os.environ.get("REC_DIR", r"F:\Evtol_TAKEOVER")   # 采集CSV存这里(sim主机F盘)
+REC = {"on": False, "file": None, "writer": None, "fields": [], "path": "",
+       "name": "", "subject": "", "n": 0, "started": None, "err": ""}
 
 def g(st, k, d=0.0):
     v = st.get(k, d); return d if v is None else v
@@ -433,6 +437,67 @@ def mark_takeover(channel):
         broadcast({"type": "takeover_done", "channel": channel, "rt": rtv})  # 通知HMI:红色报警→已接管
         append_event()
 
+def rec_start(subject):
+    """开始采集:取一帧 /get 的全部字段名做表头; 文件名=被试_诱因_模态_时间.csv, 存 REC_DIR(sim F盘)。"""
+    with REC_LOCK:
+        if REC["on"]:
+            return True, REC["path"]
+        st = client.get_state() or {}
+        for _ in range(6):                       # DevKit 偶发空帧 → 重试拿到字段
+            if st:
+                break
+            time.sleep(0.12); st = client.get_state() or {}
+        fields = sorted(st.keys())
+        if not fields:
+            REC["err"] = "DevKit 无数据, 未开始"; return False, REC["err"]
+        cause = STATE.get("armed_cause") or "na"
+        modality = SETTINGS.get("modality") or "na"
+        subj = "".join(ch for ch in (subject or "").strip() if ch.isalnum() or ch in "_-") or "S"
+        fname = "%s_%s_%s_%s.csv" % (subj, cause, modality, time.strftime("%Y%m%d_%H%M%S"))
+        try:
+            os.makedirs(REC_DIR, exist_ok=True)
+            path = os.path.join(REC_DIR, fname)
+            f = open(path, "w", newline="", encoding="utf-8-sig")
+        except Exception as e:
+            REC["err"] = "建目录/文件失败:%s" % e; return False, str(e)
+        w = csv.writer(f)
+        w.writerow(["ts_unix", "ts_local", "rel_t0_s", "phase", "cause", "modality"] + fields)
+        REC.update({"on": True, "file": f, "writer": w, "fields": fields, "path": path,
+                    "name": fname, "subject": subj, "n": 0, "started": time.time(), "err": ""})
+    print("[采集] 开始 ->", path)
+    return True, path
+
+def rec_stop():
+    with REC_LOCK:
+        f = REC["file"]; REC["on"] = False
+        if f:
+            try: f.flush(); f.close()
+            except Exception: pass
+        REC["file"] = None; REC["writer"] = None
+    print("[采集] 停止, 共 %d 帧" % REC.get("n", 0))
+    return True
+
+def rec_write(st):
+    """每帧写一行:时间戳(unix+本地) + 试次上下文(相对t0/阶段/诱因/模态) + 全部 DevKit 字段值。"""
+    if not REC["on"]:
+        return
+    with REC_LOCK:
+        w = REC["writer"]
+        if not w:
+            return
+        now = time.time()
+        loc = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)) + (".%03d" % int(round((now - int(now)) * 1000)))
+        rel = (now - STATE["t0"]) if STATE.get("t0") else ""
+        row = [round(now, 3), loc, (rel if rel == "" else round(rel, 3)),
+               STATE.get("phase"), STATE.get("armed_cause"), SETTINGS.get("modality")]
+        row += [st.get(c) for c in REC["fields"]]
+        try:
+            w.writerow(row); REC["n"] += 1
+            if REC["n"] % 20 == 0:
+                REC["file"].flush()
+        except Exception as e:
+            REC["err"] = "写入异常:%s" % e
+
 def monitor_loop():
     period = 1.0 / config.CONTROL_HZ
     i = 0
@@ -446,6 +511,7 @@ def monitor_loop():
                 STATE["vspeed"] = round(g(st, "VERTICAL_SPEED"), 1)
                 STATE["lat"], STATE["lng"] = st.get("PLANE_LATITUDE"), st.get("PLANE_LONGITUDE")
             detect_manual(st)   # 通道B/随时手动接管：全程有效(AP飞行中动杆→AP off)
+            rec_write(st)       # 数据采集(若在采集中): 时间戳 + 全部 DevKit 字段
             cause, phase = STATE["armed_cause"], STATE["phase"]
             now = time.time()
             if cause and cause != "blank" and phase in ("waiting", "alerted", "triggered", "takeover"):
@@ -574,14 +640,22 @@ button.sel{outline:4px solid #fff}
 <div class=card><div class=k>接管 RT</div><div class=v id=rt>—</div></div>
 </div>
 <div class=zone id=zone></div>
+
+<div class=lbl>⑤ 数据采集（存 sim 主机 F:\\Evtol_TAKEOVER，按 被试_诱因_模态_时间 自动命名）</div>
+<div class=row>
+<input id=subj placeholder="被试编号 如 P01" autocomplete=off style="flex:1;border-radius:12px;border:0;padding:14px;font-size:16px;background:#1a2130;color:#e8edf6">
+<button id=recbtn class=b-apon onclick="togglerec()" style="flex:1">● 开始采集</button>
+</div>
+<div class=zone id=recinfo></div>
 </div><script>
 const CN={wind_shear:'风切变',ap_fail:'自驾故障',obstacle:'障碍物',blank:'空白'};
-let apOn=null;
+let apOn=null,recOn=false;
 function setmod(m){fetch('/modality',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modality:m})})}
 function arm(c){fetch('/arm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cause:c})})}
 function fire(){fetch('/fire',{method:'POST'})}
 function rst(){fetch('/reset',{method:'POST'})}
 function toggleap(){fetch('/ap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:!apOn})})}
+function togglerec(){if(!recOn){let s=document.getElementById('subj').value.trim();fetch('/rec_start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subject:s})}).then(r=>r.json()).then(d=>{if(!d.ok)alert('采集启动失败：'+(d.info||''))})}else{fetch('/rec_stop',{method:'POST'})}}
 function teleport(){if(confirm('把飞机传送到当前诱因的起点(800ft)？会立即重定位飞机。'))fetch('/teleport',{method:'POST'})}
 function tphelipad(){if(confirm('把飞机传送到停机坪？'))fetch('/teleport_helipad',{method:'POST'})}
 function selBtns(sel,mod){['wind_shear','ap_fail','obstacle','blank'].forEach(c=>{});}
@@ -609,6 +683,12 @@ async function tick(){try{let s=await(await fetch('/status')).json();
  document.getElementById('rt').textContent=s.rt!=null?(s.rt+' s'):'—';
  document.getElementById('zone').textContent=(s.modality?('模态：'+({visual:'视觉',audio:'听觉',multimodal:'视觉+听觉'}[s.modality])+'　'):'')+(s.zone||'');
  if(s.start){let st=s.start;document.getElementById('startinfo').textContent='起点(当前诱因)：'+(st.lat!=null?(st.lat.toFixed(5)+', '+st.lng.toFixed(5)+' @'+st.alt_ft+'ft'):'需先选诱因')+(s.helipad?('　｜停机坪：'+s.helipad.lat.toFixed(5)+', '+s.helipad.lng.toFixed(5)):'')}
+ let rc=s.rec||{};recOn=!!rc.on;let rb=document.getElementById('recbtn');
+ if(recOn){rb.textContent='■ 停止采集';rb.className='b-apoff'}else{rb.textContent='● 开始采集';rb.className='b-apon'}
+ let ri;
+ if(recOn){ri='● 采集中：'+(rc.name||'')+'　已 '+(rc.n||0)+' 帧'}
+ else{ri=(rc.name?('上次：'+rc.name+'（'+(rc.n||0)+' 帧）　'):'')+'目录 '+(rc.dir||'F:\\\\Evtol_TAKEOVER');if(rc.err){ri+='　⚠ '+rc.err}}
+ document.getElementById('recinfo').textContent=ri;
  }catch(e){}}
 setInterval(tick,400);tick();
 </script></body></html>"""
@@ -680,6 +760,8 @@ class H(BaseHTTPRequestHandler):
             s["start"] = start_point()
             s["helipad"] = HELIPAD
             s["zone"] = zone_desc(s["armed_cause"]) if s["armed_cause"] else ""
+            s["rec"] = {"on": REC["on"], "name": REC.get("name"), "n": REC.get("n"),
+                        "dir": REC_DIR, "err": REC.get("err")}
             self._send(200, json.dumps(s, ensure_ascii=False))
         elif self.path.startswith("/events"):
             self.send_response(200); self.send_header("Content-Type", "text/event-stream")
@@ -722,6 +804,11 @@ class H(BaseHTTPRequestHandler):
             reset(); self._send(200, '{"ok":1}')
         elif self.path.startswith("/takeover"):
             mark_takeover("touch"); self._send(200, '{"ok":1}')
+        elif self.path.startswith("/rec_start"):
+            ok, info = rec_start(body.get("subject", ""))
+            self._send(200, json.dumps({"ok": 1 if ok else 0, "info": info}, ensure_ascii=False))
+        elif self.path.startswith("/rec_stop"):
+            rec_stop(); self._send(200, '{"ok":1}')
         else:
             self._send(404, "{}")
 
