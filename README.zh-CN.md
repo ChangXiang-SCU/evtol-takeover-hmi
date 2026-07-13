@@ -1,6 +1,6 @@
 # eVTOL 接管 HMI — 微软模拟飞行 2024 上的自主飞行与接管
 
-> 🇬🇧 English: **[README.md](README.md)**　｜　📖 详细文档：**[docs/USAGE.zh-CN.md](docs/USAGE.zh-CN.md)** · **[docs/DESIGN.zh-CN.md](docs/DESIGN.zh-CN.md)**
+> 🇬🇧 English: **[README.md](README.md)**　｜　📖 详细文档：**[docs/USAGE.zh-CN.md](docs/USAGE.zh-CN.md)** · **[docs/DESIGN.zh-CN.md](docs/DESIGN.zh-CN.md)** · **[docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md)**（采集 CSV 字段说明）
 
 一个研究 eVTOL **自主飞行接管** 的实验平台，基于 **微软模拟飞行 2024（MSFS 2024）** 及其 **AICtrl DevKit** REST 接口。飞机自主地以**阶梯式进近**飞向楼顶停机坪；在预设点自动触发一种诱因——**风切变**、**自驾故障** 或 **障碍物**——同时**多模态接管 HMI**（视觉／听觉／两者）提示被试接管，系统记录**接管反应时**与逐帧**遥测**。
 

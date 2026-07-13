@@ -1,6 +1,6 @@
 # eVTOL Takeover HMI — autonomous flight & takeover on MSFS 2024
 
-> 🇨🇳 中文说明：**[README.zh-CN.md](README.zh-CN.md)**　｜　📖 Detailed docs: **[docs/USAGE.md](docs/USAGE.md)** · **[docs/DESIGN.md](docs/DESIGN.md)**
+> 🇨🇳 中文说明：**[README.zh-CN.md](README.zh-CN.md)**　｜　📖 Detailed docs: **[docs/USAGE.md](docs/USAGE.md)** · **[docs/DESIGN.md](docs/DESIGN.md)** · **[docs/DATA_DICTIONARY.md](docs/DATA_DICTIONARY.md)** (采集 CSV 字段说明)
 
 A research platform for studying **pilot takeover** from an autonomous eVTOL. It is built on **Microsoft Flight Simulator 2024** and its **AICtrl DevKit** REST API. The aircraft flies an autonomous **stepped approach** to a rooftop helipad; at a scripted point a hazard is triggered — **wind shear**, **autopilot failure**, or an **obstacle** — and a **multimodal takeover HMI** (visual / audio / both) asks the human subject to take over, while the system records **reaction time** and full **telemetry**.
 
