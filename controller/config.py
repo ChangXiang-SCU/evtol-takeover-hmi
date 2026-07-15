@@ -165,6 +165,11 @@ CAUSE_TEXT = {
     "blank":      "请立即接管",
 }
 
+# ---- Honeycomb Bravo 物理「AUTO PILOT」键 → 切回自主飞行（已集成进 control_panel.py 后台线程）----
+# 用 controller/bravo_ap_bridge.py discover 找按钮号；enabled=False 可关闭。
+# 注意：joy 设备号可能在重新插拔/重启后变化，届时重新 discover 并改这里即可。
+BRAVO_AP = {"enabled": True, "joy": 6, "button": 7}
+
 # ---- 仅 Mock 用 ----
 MOCK_GROUNDSPEED_FTS = 120.0    # 干跑时飞机接近触发点的地速(调快以尽快进入高度带)
 MOCK_AUTO_TAKEOVER_S = 2.5      # 干跑时 t0 后自动模拟一次"操控输入"，好让链路跑完

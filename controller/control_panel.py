@@ -304,6 +304,8 @@ def _throttle_route_loop():
 
 def reengage_autopilot():
     """切回自动驾驶=恢复自主航线(阶梯式下降+飞向停机坪)。先停掉可能在跑的旧线程再起新线程。"""
+    if STATE.get("ap_on"):        # 已在自主飞行→直接返回,避免重启航线造成 on→off→on 抖动/重置静息基准
+        return True
     if not HELIPAD:
         try:
             st = client.get_state() or {}
@@ -713,7 +715,7 @@ html,body{margin:0;height:100%;background:#0b0f16;color:#fff;overflow:hidden}
 #gate b{font-size:9vw;font-weight:900}#gate span{font-size:3.4vw;margin-top:2vh;opacity:.75}
 </style></head><body>
 <div id=gate onclick="unlock()"><b>▶ 点击进入</b><span>开启声音提示（iPad 需先点一下屏幕）</span></div>
-<div id=apst>自动驾驶 —</div>
+<div id=apst>自主飞行 —</div>
 <div id=s class=calm><div id=big>监控中</div><div id=sub></div></div>
 <button id=reapbtn onclick="reap()">🔄 自主飞行</button>
 <script>
@@ -730,15 +732,15 @@ function stopflash(){if(ftimer){clearInterval(ftimer);ftimer=null}}
 function scr(c){stopflash();document.getElementById('s').className=c}
 function flash(){let s=document.getElementById('s'),n=0;stopflash();ftimer=setInterval(()=>{s.className=(n++%2==0)?'alarm':'calm';if(n>16){stopflash();s.className='alarm'}},220)}
 async function pollap(){try{let s=await(await fetch('/status')).json();let e=document.getElementById('apst');
- if(s.ap_on===true){e.textContent='自动驾驶 开';e.className='on'}
- else if(s.ap_on===false){e.textContent='自动驾驶 关';e.className='off'}
- else{e.textContent='自动驾驶 —';e.className=''}}catch(_){}}
+ if(s.ap_on===true){e.textContent='自主飞行 开';e.className='on'}
+ else if(s.ap_on===false){e.textContent='自主飞行 关';e.className='off'}
+ else{e.textContent='自主飞行 —';e.className=''}}catch(_){}}
 function conn(){ev=new EventSource('/events');
  ev.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(_){return}
   if(d.type=='takeover_request'){let m=d.modality||'multimodal',msg=d.text||CN[d.cause]||'请立即接管';
    if(m=='visual'||m=='multimodal'){let b=document.getElementById('big');b.style.fontSize='4.4vw';b.textContent='⚠ '+msg;document.getElementById('sub').textContent='请动操纵杆接管';flash()}
    if(m=='audio'||m=='multimodal'){beep();speak(msg)}}
-  else if(d.type=='takeover_done'){scr('done');let b=document.getElementById('big');b.style.fontSize='';b.textContent='✓ 已接管';document.getElementById('sub').textContent=(d.rt!=null?('反应时 '+d.rt+' s'):'')+(d.channel=='touch'?'（触摸屏）':'（操纵杆）');try{window.speechSynthesis.cancel()}catch(_){}}
+  else if(d.type=='takeover_done'){scr('calm');let b=document.getElementById('big');b.style.fontSize='';b.textContent='监控中';document.getElementById('sub').textContent='';try{window.speechSynthesis.cancel()}catch(_){}}
   else if(d.type=='reset'){scr('calm');let b=document.getElementById('big');b.style.fontSize='';b.textContent='监控中';document.getElementById('sub').textContent=''}};
  ev.onerror=()=>{ev.close();setTimeout(conn,1500)}}
 conn();pollap();setInterval(pollap,600);
@@ -808,7 +810,10 @@ class H(BaseHTTPRequestHandler):
             ok = teleport_start(); self._send(200, '{"ok":%d}' % (1 if ok else 0))
         elif self.path.startswith("/fire"):
             c = STATE["armed_cause"] or "blank"
-            if STATE["phase"] == "idle": STATE["phase"] = "waiting"
+            if STATE["t0"] is not None:          # 上一trial已预警未复位→先重新arm(存盘+复位)保证手动触发每次都生效
+                arm(c)
+            elif STATE["phase"] == "idle":
+                STATE["phase"] = "waiting"
             do_alert(c, manual=True); self._send(200, '{"ok":1}')   # 手动=立即预警,ALERT_LEAD_S 秒后诱因生效
         elif self.path.startswith("/reset"):
             reset(); self._send(200, '{"ok":1}')
@@ -822,12 +827,66 @@ class H(BaseHTTPRequestHandler):
         else:
             self._send(404, "{}")
 
+def _bravo_ap_loop():
+    """后台线程：读 Honeycomb Bravo 的物理「AUTO PILOT」键 → 切回自主飞行(set_ap(True))。
+    纯 stdlib(ctypes+winmm)，全程异常兜底；读不到手柄/非 Windows 只是禁用，绝不拖垮面板。
+    参数见 config.BRAVO_AP({enabled,joy,button})。"""
+    cfg = getattr(config, "BRAVO_AP", None) or {}
+    if not cfg.get("enabled", False):
+        return
+    joy = int(cfg.get("joy", 6)); button = int(cfg.get("button", 7)); mask = 1 << button
+    try:
+        import ctypes
+        from ctypes import wintypes
+        winmm = ctypes.WinDLL("winmm")
+    except Exception as e:
+        print("[Bravo桥] 未启用(非Windows或无winmm):", e); return
+
+    class JOYINFOEX(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("dwFlags", wintypes.DWORD),
+                    ("dwXpos", wintypes.DWORD), ("dwYpos", wintypes.DWORD), ("dwZpos", wintypes.DWORD),
+                    ("dwRpos", wintypes.DWORD), ("dwUpos", wintypes.DWORD), ("dwVpos", wintypes.DWORD),
+                    ("dwButtons", wintypes.DWORD), ("dwButtonNumber", wintypes.DWORD),
+                    ("dwPOV", wintypes.DWORD), ("dwReserved1", wintypes.DWORD), ("dwReserved2", wintypes.DWORD)]
+
+    def poll():
+        info = JOYINFOEX(); info.dwSize = ctypes.sizeof(JOYINFOEX); info.dwFlags = 0xFF
+        return info.dwButtons if winmm.joyGetPosEx(joy, ctypes.byref(info)) == 0 else None
+
+    print("[Bravo桥] 已启用：监听 设备#%d 按钮#%d → 切回自主飞行" % (joy, button))
+    prev = bool((poll() or 0) & mask); last = 0.0
+    while True:
+        try:
+            b = poll()
+            if b is None:
+                time.sleep(1.0); prev = False; continue      # 手柄不在(未插/id变了)→退避重试
+            pressed = bool(b & mask); now = time.time()
+            if pressed and not prev and now - last > 0.3:     # 上升沿 + 去抖
+                msg = "物理 AP 键按下 → 切回自主飞行 (ap_on前=%s)" % STATE.get("ap_on")
+                print("[Bravo桥]", msg)
+                try:
+                    with open(r"F:\_bravo_ap.log", "a", encoding="utf-8") as _fh:
+                        _fh.write(time.strftime("%H:%M:%S ") + msg + "\n")
+                except Exception:
+                    pass
+                try:
+                    set_ap(True)
+                except Exception as ex:
+                    print("[Bravo桥] set_ap 失败:", ex)
+                last = now
+            prev = pressed
+            time.sleep(0.015)
+        except Exception as ex:
+            print("[Bravo桥] 循环异常(继续):", ex); time.sleep(1.0)
+
+
 def main():
     try:
         st = client.get_state(); ok = bool(st); nf = len(st) if st else 0
     except Exception as e:
         ok, nf = False, 0; print("[警告] DevKit 异常:", e)
     threading.Thread(target=monitor_loop, daemon=True).start()
+    threading.Thread(target=_bravo_ap_loop, daemon=True).start()   # Bravo 物理AP键桥(集成,取代独立 bravo_ap_run.py)
     print("=" * 56)
     print(" eVTOL 接管实验 · 操作台已启动 (模态三选一 + AP开关)")
     print("  DevKit:", config.DEVKIT_BASE_URL, "| /get 字段:", nf, ("OK" if ok else "未连上!"))
