@@ -705,22 +705,27 @@ html,body{margin:0;height:100%;background:#0b0f16;color:#fff;overflow:hidden}
 #s{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.12s}
 #big{font-size:8vw;font-weight:900;text-align:center;padding:0 4vw}
 #sub{font-size:3vw;margin-top:1.6vh;opacity:.92;text-align:center}
-#tk{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);font-size:4vw;padding:2.4vh 10vw;border-radius:16px;background:#fff;color:#000;font-weight:800;border:0}
 .calm{background:#0b0f16}.alarm{background:#c00}.done{background:#137a43}
 #apst{position:fixed;left:3vw;top:3vh;font-size:2.4vw;padding:1.1vh 2.6vw;border-radius:10px;background:#1f2836;color:#cbd5e1;font-weight:700}
 #apst.on{background:#166534;color:#eafff0}#apst.off{background:#7f1d1d;color:#ffecec}
-#reapbtn{position:fixed;right:3vw;top:3vh;font-size:2.6vw;padding:1.6vh 3.5vw;border-radius:12px;background:#2563eb;color:#fff;font-weight:800;border:0}
+#reapbtn{position:fixed;left:50%;bottom:6vh;transform:translateX(-50%);font-size:4vw;padding:2.4vh 10vw;border-radius:16px;background:#2563eb;color:#fff;font-weight:800;border:0}
+#gate{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0b0f16;color:#fff;text-align:center;cursor:pointer}
+#gate b{font-size:9vw;font-weight:900}#gate span{font-size:3.4vw;margin-top:2vh;opacity:.75}
 </style></head><body>
+<div id=gate onclick="unlock()"><b>▶ 点击进入</b><span>开启声音提示（iPad 需先点一下屏幕）</span></div>
 <div id=apst>自动驾驶 —</div>
 <div id=s class=calm><div id=big>监控中</div><div id=sub></div></div>
-<button id=tk onclick="tk()">接 管</button><button id=reapbtn onclick="reap()">🔄 切回自动驾驶</button>
+<button id=reapbtn onclick="reap()">🔄 自主飞行</button>
 <script>
 const CN={wind_shear:'检测到风切变',ap_fail:'自动驾驶故障',obstacle:'前方障碍物',blank:'请接管'};
 let ev,actx,ftimer;
+function unlock(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();actx.resume();let b=actx.createBuffer(1,1,22050),s=actx.createBufferSource();s.buffer=b;s.connect(actx.destination);s.start(0)}catch(_){}
+ try{let u=new SpeechSynthesisUtterance(' ');u.lang='zh-CN';window.speechSynthesis.speak(u)}catch(_){}
+ let g=document.getElementById('gate');if(g)g.style.display='none'}
 function tk(){fetch('/takeover',{method:'POST'})}
 function reap(){fetch('/ap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:true})})}
-function beep(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();let n=0,t=setInterval(()=>{let o=actx.createOscillator(),gg=actx.createGain();o.frequency.value=880;o.connect(gg);gg.connect(actx.destination);gg.gain.value=.25;o.start();o.stop(actx.currentTime+.18);if(++n>=4)clearInterval(t)},260)}catch(_){}}
-function speak(t){try{window.speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=1.05;window.speechSynthesis.speak(u)}catch(_){}}
+function beep(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();let n=0,t=setInterval(()=>{let o=actx.createOscillator(),gg=actx.createGain();o.frequency.value=880;o.connect(gg);gg.connect(actx.destination);gg.gain.value=.25;o.start();o.stop(actx.currentTime+.18);if(++n>=4)clearInterval(t)},260)}catch(_){}}
+function speak(t){try{window.speechSynthesis.resume();window.speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.lang='zh-CN';u.rate=1.05;window.speechSynthesis.speak(u)}catch(_){}}
 function stopflash(){if(ftimer){clearInterval(ftimer);ftimer=null}}
 function scr(c){stopflash();document.getElementById('s').className=c}
 function flash(){let s=document.getElementById('s'),n=0;stopflash();ftimer=setInterval(()=>{s.className=(n++%2==0)?'alarm':'calm';if(n>16){stopflash();s.className='alarm'}},220)}
@@ -730,11 +735,11 @@ async function pollap(){try{let s=await(await fetch('/status')).json();let e=doc
  else{e.textContent='自动驾驶 —';e.className=''}}catch(_){}}
 function conn(){ev=new EventSource('/events');
  ev.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch(_){return}
-  if(d.type=='takeover_request'){let m=d.modality||'multimodal',cn=CN[d.cause]||d.text||'请接管';
-   if(m=='visual'||m=='multimodal'){document.getElementById('big').textContent='⚠ 请接管 · '+cn;document.getElementById('sub').textContent='动杆或点屏接管';flash()}
-   if(m=='audio'||m=='multimodal'){beep();speak(cn+'，请接管')}}
-  else if(d.type=='takeover_done'){scr('done');document.getElementById('big').textContent='✓ 已接管';document.getElementById('sub').textContent=(d.rt!=null?('反应时 '+d.rt+' s'):'')+(d.channel=='touch'?'（触摸屏）':'（操纵杆）');try{window.speechSynthesis.cancel()}catch(_){}}
-  else if(d.type=='reset'){scr('calm');document.getElementById('big').textContent='监控中';document.getElementById('sub').textContent=''}};
+  if(d.type=='takeover_request'){let m=d.modality||'multimodal',msg=d.text||CN[d.cause]||'请立即接管';
+   if(m=='visual'||m=='multimodal'){let b=document.getElementById('big');b.style.fontSize='4.4vw';b.textContent='⚠ '+msg;document.getElementById('sub').textContent='请动操纵杆接管';flash()}
+   if(m=='audio'||m=='multimodal'){beep();speak(msg)}}
+  else if(d.type=='takeover_done'){scr('done');let b=document.getElementById('big');b.style.fontSize='';b.textContent='✓ 已接管';document.getElementById('sub').textContent=(d.rt!=null?('反应时 '+d.rt+' s'):'')+(d.channel=='touch'?'（触摸屏）':'（操纵杆）');try{window.speechSynthesis.cancel()}catch(_){}}
+  else if(d.type=='reset'){scr('calm');let b=document.getElementById('big');b.style.fontSize='';b.textContent='监控中';document.getElementById('sub').textContent=''}};
  ev.onerror=()=>{ev.close();setTimeout(conn,1500)}}
 conn();pollap();setInterval(pollap,600);
 </script></body></html>"""
